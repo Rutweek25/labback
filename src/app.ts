@@ -20,7 +20,8 @@ const allowedOrigins = new Set([
   "http://localhost:5175",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
-  "http://127.0.0.1:5175"
+  "http://127.0.0.1:5175",
+  "https://labmanagementpbn.netlify.app"
 ]);
 
 const isAllowedOrigin = (origin?: string) => {
