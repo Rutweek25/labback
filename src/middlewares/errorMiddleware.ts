@@ -16,8 +16,15 @@ export const errorHandler = (
     return res.status(error.statusCode).json({ message: error.message });
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return res.status(400).json({ message: error.message });
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError ||
+    error instanceof Prisma.PrismaClientUnknownRequestError
+  ) {
+    const message = error.message.includes("Authentication failed")
+      ? "Database authentication failed. Check the MongoDB username and password in DATABASE_URL."
+      : error.message;
+
+    return res.status(502).json({ message });
   }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
