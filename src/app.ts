@@ -31,7 +31,8 @@ const isAllowedOrigin = (origin?: string) => {
   try {
     const parsed = new URL(origin);
     const isVercelHost = parsed.hostname.endsWith(".vercel.app");
-    if (isVercelHost) {
+    const isNetlifyHost = parsed.hostname.endsWith(".netlify.app") || parsed.hostname.endsWith(".netlify.com");
+    if (isVercelHost || isNetlifyHost) {
       return true;
     }
 
