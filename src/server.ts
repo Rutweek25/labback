@@ -13,13 +13,27 @@ const configuredOrigins = env.CLIENT_URL
   .filter(Boolean);
 
 const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const netlifyOriginPattern = /(?:^|\.)netlify\.(?:app|com)$/i;
 
 const isAllowedOrigin = (origin?: string) => {
   if (!origin) {
     return true;
   }
 
-  return configuredOrigins.includes(origin) || localhostOriginPattern.test(origin);
+  if (configuredOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (localhostOriginPattern.test(origin)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    return netlifyOriginPattern.test(parsed.hostname);
+  } catch {
+    return false;
+  }
 };
 
 const io = new Server(server, {
@@ -33,7 +47,9 @@ const io = new Server(server, {
       callback(new Error(`Socket CORS blocked for origin: ${origin || "unknown"}`));
     },
     credentials: true
-  }
+  },
+  transports: ["websocket", "polling"],
+  allowEIO3: true
 });
 
 io.on("connection", (socket) => {
