@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DOCTOR
+  TECHNICIAN
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+}
+
+enum ReportStatus {
+  READY
+}
+
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  role           Role
+  email          String    @unique
+  password       String
+  isActive       Boolean   @default(true)
+  patients       Patient[]
+  doctorOrders   Order[]   @relation("DoctorOrders")
+  notifications  Notification[]
+  createdAt      DateTime  @default(now())
+}
+
+model Patient {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  phone       String
+  age         Int
+  gender      String
+  createdById String   @db.ObjectId
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  orders      Order[]
+  createdAt   DateTime @default(now())
+}
+
+model Test {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  name       String      @unique
+  price      Float
+  isDeleted  Boolean     @default(false)
+  deletedAt  DateTime?
+  orderTests OrderTest[]
+  createdAt  DateTime    @default(now())
+}
+
+model Order {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  patientId  String      @db.ObjectId
+  doctorId   String      @db.ObjectId
+  status     OrderStatus @default(PENDING)
+  sampleStatus String    @default("PENDING")
+  isDeleted  Boolean     @default(false)
+  deletedAt  DateTime?
+  patient    Patient     @relation(fields: [patientId], references: [id])
+  doctor     User        @relation("DoctorOrders", fields: [doctorId], references: [id])
+  orderTests OrderTest[]
+  payments   Payment[]
+  reports    Report[]
+  createdAt  DateTime    @default(now())
+}
+
+model OrderTest {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String  @db.ObjectId
+  testId    String  @db.ObjectId
+  unitPrice Float
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  test      Test    @relation(fields: [testId], references: [id])
+
+  @@unique([orderId, testId])
+}
+
+model Payment {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String        @db.ObjectId
+  amount    Float
+  status    PaymentStatus @default(PENDING)
+  method    PaymentMethod
+  isDeleted Boolean       @default(false)
+  deletedAt DateTime?
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+}
+
+model Report {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  fileName  String
+  fileUrl   String
+  filePath  String
+  fileType  String
+  status    String   @default("UPLOADED")
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  recipientId String   @db.ObjectId
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  type        String
+  title       String
+  message     String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([recipientId, isRead, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorId    String?
+  actorRole  Role?
+  entityType String
+  entityId   String?
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
