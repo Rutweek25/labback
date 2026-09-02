@@ -69,7 +69,20 @@ io.on("connection", (socket) => {
   });
 });
 
+import { prisma } from "./config/prisma";
+
 setSocketServer(io);
+
+prisma
+  .$connect()
+  .then(() => {
+    // eslint-disable-next-line no-console
+    console.log("Database connected successfully");
+  })
+  .catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("Database initial connection error:", err);
+  });
 
 server.listen(env.PORT, () => {
   // eslint-disable-next-line no-console

@@ -325,6 +325,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 };
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
+  const t0 = Date.now();
   try {
     const { email, password, role } = req.body as {
       email: string;
@@ -337,7 +338,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
+    const tDbStart = Date.now();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const tDbMs = Date.now() - tDbStart;
+
     if (!user) {
       throw new ApiError(401, "Invalid credentials");
     }
@@ -346,17 +350,26 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       throw new ApiError(403, "Account not approved by admin yet.");
     }
 
+    const tBcryptStart = Date.now();
     const validPassword = await bcrypt.compare(password, user.password);
+    const tBcryptMs = Date.now() - tBcryptStart;
+
     if (!validPassword || user.role !== role) {
       throw new ApiError(401, "Invalid credentials or role");
     }
 
+    const tJwtStart = Date.now();
     const token = signToken({
       id: user.id,
       role: user.role,
       email: user.email,
       name: user.name
     });
+    const tJwtMs = Date.now() - tJwtStart;
+
+    const totalBackendMs = Date.now() - t0;
+    // eslint-disable-next-line no-console
+    console.log(`[LOGIN TIMING] total=${totalBackendMs}ms db=${tDbMs}ms bcrypt=${tBcryptMs}ms jwt=${tJwtMs}ms`);
 
     res.json({
       token,
@@ -368,7 +381,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     });
 
-    await writeAuditLog({
+    void writeAuditLog({
       actorId: user.id,
       actorRole: user.role,
       entityType: "Auth",
