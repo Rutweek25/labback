@@ -8,6 +8,8 @@ export const globalSearch = async (req: Request, res: Response, next: NextFuncti
       return res.json({ patients: [], orders: [], reports: [] });
     }
 
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(q);
+
     const [patients, orders, reports] = await Promise.all([
       prisma.patient.findMany({
         where: {
@@ -28,7 +30,7 @@ export const globalSearch = async (req: Request, res: Response, next: NextFuncti
             { patient: { phone: { contains: q, mode: "insensitive" } } },
             { reports: { some: { isDeleted: false, fileName: { contains: q, mode: "insensitive" } } } },
             { reports: { some: { isDeleted: false, status: { contains: q, mode: "insensitive" } } } },
-            ...(q ? [{ id: q }] : [])
+            ...(isValidObjectId ? [{ id: q }] : [])
           ]
         },
         include: {
@@ -46,7 +48,7 @@ export const globalSearch = async (req: Request, res: Response, next: NextFuncti
             { status: { contains: q, mode: "insensitive" } },
             { order: { patient: { name: { contains: q, mode: "insensitive" } } } },
             { order: { patient: { phone: { contains: q, mode: "insensitive" } } } },
-            ...(q ? [{ orderId: q }] : [])
+            ...(isValidObjectId ? [{ orderId: q }] : [])
           ]
         },
         include: {

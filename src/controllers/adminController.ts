@@ -25,7 +25,11 @@ export const getAdminSummary = async (_req: Request, res: Response, next: NextFu
       prisma.user.count({ where: { role: "TECHNICIAN" } }),
       prisma.patient.count({ where: { isDeleted: false } }),
       prisma.order.count({ where: { isDeleted: false } }),
-      prisma.payment.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" } }),
+      prisma.payment.findMany({
+        where: { isDeleted: false },
+        select: { id: true, amount: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" }
+      }),
       prisma.test.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" }, take: 10 }),
       prisma.order.findMany({ where: { isDeleted: false }, select: { createdAt: true }, orderBy: { createdAt: "asc" } }),
       prisma.orderTest.findMany({
@@ -33,18 +37,20 @@ export const getAdminSummary = async (_req: Request, res: Response, next: NextFu
           order: { isDeleted: false },
           test: { isDeleted: false }
         },
-        include: {
-          test: true
+        select: {
+          unitPrice: true,
+          test: { select: { name: true } }
         }
       }),
       prisma.order.findMany({
         where: { isDeleted: false },
-        include: {
+        select: {
           doctor: { select: { id: true, name: true } },
           payments: {
             where: { isDeleted: false },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            take: 1
+            take: 1,
+            select: { status: true }
           }
         }
       })

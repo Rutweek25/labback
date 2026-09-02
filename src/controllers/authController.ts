@@ -218,7 +218,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       throw new ApiError(400, "Email, password and role are required");
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       throw new ApiError(401, "Invalid credentials");
     }

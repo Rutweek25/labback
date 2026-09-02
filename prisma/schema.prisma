@@ -58,6 +58,9 @@ model Patient {
   createdBy   User     @relation(fields: [createdById], references: [id])
   orders      Order[]
   createdAt   DateTime @default(now())
+
+  @@index([createdById, isDeleted, createdAt])
+  @@index([phone, isDeleted])
 }
 
 model Test {
@@ -84,6 +87,11 @@ model Order {
   payments   Payment[]
   reports    Report[]
   createdAt  DateTime    @default(now())
+
+  @@index([doctorId, isDeleted, createdAt])
+  @@index([patientId, isDeleted])
+  @@index([status, isDeleted])
+  @@index([createdAt])
 }
 
 model OrderTest {
@@ -107,6 +115,9 @@ model Payment {
   deletedAt DateTime?
   order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
+
+  @@index([orderId, isDeleted])
+  @@index([status, isDeleted, createdAt])
 }
 
 model Report {
@@ -121,6 +132,9 @@ model Report {
   deletedAt DateTime?
   createdAt DateTime @default(now())
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, isDeleted])
+  @@index([status, isDeleted])
 }
 
 model Notification {
@@ -148,4 +162,7 @@ model AuditLog {
   action     String
   metadata   Json?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }
+

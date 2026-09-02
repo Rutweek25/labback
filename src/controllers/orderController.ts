@@ -26,12 +26,14 @@ const getUpdatedLists = async (user: Express.User) => {
   const [patients, requests] = await Promise.all([
     prisma.patient.findMany({
       where: user.role === roles[0] ? { createdById: user.id, isDeleted: false } : { isDeleted: false },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: 100
     }),
     prisma.order.findMany({
       where: user.role === roles[0] ? { doctorId: user.id, isDeleted: false } : { isDeleted: false },
       include: orderInclude,
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: 100
     })
   ]);
 
