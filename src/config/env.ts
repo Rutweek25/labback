@@ -14,7 +14,9 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().optional()
+  SMTP_FROM: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().optional().default("onboarding@resend.dev")
 });
 
 const parsed = envSchema.safeParse(process.env);

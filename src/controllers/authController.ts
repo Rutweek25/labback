@@ -5,7 +5,7 @@ import { prisma } from "../config/prisma";
 import { ApiError } from "../utils/ApiError";
 import { signToken } from "../utils/jwt";
 import { writeAuditLog } from "../utils/audit";
-import { sendOptionalEmail } from "../utils/email";
+import { sendOptionalEmail, sendPasswordResetOtpEmail } from "../utils/email";
 import { env } from "../config/env";
 
 type PendingRegistration = {
@@ -220,11 +220,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         create: { email: normalizedEmail, otp, expiresAt }
       });
 
-      await sendOptionalEmail(
-        normalizedEmail,
-        "Password Reset Code",
-        buildOtpEmailText(user.name, otp)
-      );
+      await sendPasswordResetOtpEmail(normalizedEmail, user.name, otp);
 
       await writeAuditLog({
         actorId: user.id,
