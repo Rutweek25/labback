@@ -82,11 +82,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
 
     res.status(201).json({
-      message: emailSent
-        ? "OTP sent to your email. Verify to complete registration."
-        : "OTP generated but SMTP is not configured. Use OTP preview in development.",
-      email: normalizedEmail,
-      ...(env.NODE_ENV !== "production" ? { otpPreview: otp } : {})
+      message: "OTP sent to your email. Please verify to complete registration.",
+      email: normalizedEmail
     });
 
     await writeAuditLog({
@@ -196,10 +193,131 @@ export const resendRegistrationOtp = async (req: Request, res: Response, next: N
     }
 
     res.json({
-      message: emailSent
-        ? "A new OTP has been sent to your email."
-        : "OTP regenerated but SMTP is not configured. Use OTP preview in development.",
-      ...(env.NODE_ENV !== "production" ? { otpPreview: otp } : {})
+      message: "A new OTP has been sent to your email."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body as { email: string };
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      throw new ApiError(400, "Email is required");
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (user) {
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+
+      await prisma.passwordReset.upsert({
+        where: { email: normalizedEmail },
+        update: { otp, expiresAt },
+        create: { email: normalizedEmail, otp, expiresAt }
+      });
+
+      await sendOptionalEmail(
+        normalizedEmail,
+        "Password Reset Code",
+        buildOtpEmailText(user.name, otp)
+      );
+
+      await writeAuditLog({
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "Auth",
+        entityId: user.id,
+        action: "FORGOT_PASSWORD_OTP_SENT"
+      });
+    }
+
+    res.json({
+      message: "If an account with that email exists, a password reset code has been sent to your email."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyResetOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp } = req.body as { email: string; otp: string };
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedOtp = String(otp || "").trim();
+
+    if (!normalizedEmail || !normalizedOtp) {
+      throw new ApiError(400, "Email and OTP are required");
+    }
+
+    const record = await prisma.passwordReset.findUnique({ where: { email: normalizedEmail } });
+    if (!record || record.otp !== normalizedOtp) {
+      throw new ApiError(400, "Invalid OTP");
+    }
+
+    if (Date.now() > record.expiresAt.getTime()) {
+      await prisma.passwordReset.delete({ where: { email: normalizedEmail } });
+      throw new ApiError(400, "OTP expired. Please request a new code.");
+    }
+
+    res.json({
+      message: "OTP verified successfully. You can now enter your new password."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp, newPassword } = req.body as { email: string; otp: string; newPassword: string };
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedOtp = String(otp || "").trim();
+
+    if (!normalizedEmail || !normalizedOtp || !newPassword) {
+      throw new ApiError(400, "Email, OTP and new password are required");
+    }
+
+    if (newPassword.length < 6) {
+      throw new ApiError(400, "Password must be at least 6 characters long");
+    }
+
+    const record = await prisma.passwordReset.findUnique({ where: { email: normalizedEmail } });
+    if (!record || record.otp !== normalizedOtp) {
+      throw new ApiError(400, "Invalid OTP or session expired");
+    }
+
+    if (Date.now() > record.expiresAt.getTime()) {
+      await prisma.passwordReset.delete({ where: { email: normalizedEmail } });
+      throw new ApiError(400, "OTP expired. Please request a new code.");
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: { password: hashedPassword }
+    });
+
+    await prisma.passwordReset.delete({ where: { email: normalizedEmail } });
+
+    res.json({
+      message: "Password reset successfully. You can now login with your new password."
+    });
+
+    await writeAuditLog({
+      actorId: user.id,
+      actorRole: user.role,
+      entityType: "Auth",
+      entityId: user.id,
+      action: "PASSWORD_RESET_SUCCESS"
     });
   } catch (error) {
     next(error);
